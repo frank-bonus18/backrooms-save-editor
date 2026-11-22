@@ -176,14 +176,20 @@
       <div class="chips" id="lmZoneList"></div>
       <div class="field" style="margin-top:8px"><label>key（英文标识，随便写，玩家看不到）</label><input id="lmKey" value="site_1" placeholder="site_1" /></div>
       <div class="field" style="margin-top:8px"><label>nameSeed（随便给个数字，只决定地名长啥样）</label><input type="text" inputmode="numeric" id="lmSeed" value="12" placeholder="12" /></div>
-      <div class="field" style="margin-top:8px"><label>gen（世代，默认 0；同一 key 的不同世代会被当成同一条合并）</label><input type="text" inputmode="numeric" id="lmGen" placeholder="0" value="0" /></div>
+      <div class="fold">
+        <details>
+          <summary>高级：gen（一般不用动，留 0）</summary>
+          <div class="field" style="margin-top:8px"><label>gen（世界纪元号，由服务器下发；留 0 = 只进图鉴、地图上不显示标记）</label><input type="text" inputmode="numeric" id="lmGen" placeholder="0" value="0" /></div>
+          <p class="hint">gen 不是你能猜出来的值：游戏用服务器 epoch 给每个地标打世代号，同 key + 同 gen 才算同一条。填 0 存档依然有效、图鉴照样列出来，只是世界里不会插那个「已发现」的标记。想让它带标记，就在游戏里真找到一次，游戏会自己写对数字。</p>
+        </details>
+      </div>
       <div class="row" style="margin-top:10px">
         <button class="tonal grow" id="btnLmAdd">添加到列表</button>
         <button class="tonal" id="btnLmAuto">自动填一条</button>
         <button class="tonal" id="btnLmClear">清空全部</button>
       </div>
       <div id="lmList" style="margin-top:10px"></div>
-      <p class="hint">上面已经填好默认值，直接点「添加到列表」就行；懒的话点「自动填一条」。key 只是给游戏内部认的英文标识（玩家看不到），nameSeed 只决定地名，gen 留 0 即可。</p>
+      <p class="hint">上面已经填好默认值，直接点「添加到列表」就行；懒的话点「自动填一条」。key 只是给游戏内部认的英文标识（玩家看不到），nameSeed 只决定地名长啥样。<b>gen 收进「高级」了，不用管。</b></p>
     </div>
   </section>
 
@@ -252,7 +258,7 @@
       · 贴纸 / 留言点 / 金币：路过点一下就有反应<br>
       · 规则便笺：读完计入 rulesRead，和"规则已读"是同一份数据
     </p>
-    <p class="hint">地标的新字段 gen：同样 key、不同 gen 会被游戏视为同一条合并，只有 key 不同才是新地标。</p>
+    <p class="hint">地标新字段 gen = 服务器的世界纪元号（epoch），不是你填的；留 0 也能存档，只是世界里不显示该标记。</p>
   </section>
 
   <section class="card">
