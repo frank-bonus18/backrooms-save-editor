@@ -232,7 +232,7 @@
 
   <section class="card">
     <h2>5 · 附加清理（不在存档串里）</h2>
-    <p class="hint" style="margin-top:0">这两个键是作者 11-21 新增的本地缓存，存档串带不进去，只能靠注入脚本顺带清掉。</p>
+    <p class="hint" style="margin-top:0">这两个键是作者 11-21 新增的本地缓存，存档串带不进去，只能靠注入脚本处理。<b>注意：删掉布局键只会重建 201 号层，所以这里改成写入过期版本号。</b></p>
     <div class="chips" id="cacheChips"></div>
     <p class="hint">勾上后，第 3 块生成的「注入脚本 / 手机链接」会连带清理对应缓存；<b>复制存档串</b>不受影响。</p>
   </section>
@@ -775,7 +775,7 @@
     var host = document.getElementById("cacheChips");
     if (!host) return;
     var opts = [
-      ["layouts", "清空布局缓存", "houshi.layouts.v1：强制下一次进层级重新生成地形"],
+      ["layouts", "强制重建地形", "写入过期布局版本：0–19 层下次进入时重新生成地形，并自动清掉这些层的拾取记录"],
       ["picked", "清空拾取记录", "houshi.picked.v1：贴纸 / 金币 / 木鱼等重新可拾取"]
     ];
     host.innerHTML = "";
@@ -800,6 +800,27 @@
     if (state.cacheClear && state.cacheClear.layouts) out.push("houshi.layouts.v1");
     if (state.cacheClear && state.cacheClear.picked) out.push("houshi.picked.v1");
     return out;
+  }
+
+  // 游戏把「没有记录」视为默认版本 1，删键只会重建 201 号层；
+  // 要真的重建 0-19 这些层，必须写一个和期望版本不同的值（这里写 0）。
+  var STALE_LAYOUTS = (function(){
+    var o = {};
+    for (var i = 0; i < 20; i++) o[i] = 0;
+    o[201] = 1;
+    return JSON.stringify(o);
+  })();
+
+  function cacheClearCodeLines(indent){
+    var pre = indent || "";
+    var lines = [];
+    if (state.cacheClear && state.cacheClear.layouts){
+      lines.push(pre + "localStorage.setItem('houshi.layouts.v1', " + JSON.stringify(STALE_LAYOUTS) + ");");
+    }
+    if (state.cacheClear && state.cacheClear.picked){
+      lines.push(pre + "localStorage.removeItem('houshi.picked.v1');");
+    }
+    return lines;
   }
 
   function renderLang(){
@@ -844,8 +865,7 @@
   }
 
   function buildInjectUrl(code){
-    var clearList = cacheClearCode();
-    var clearStr = clearList.length ? ("[" + clearList.map(function(k){ return JSON.stringify(k); }).join(",") + "].forEach(k=>localStorage.removeItem(k));") : "";
+    var clearStr = cacheClearCodeLines("").join("");
     var body = "(async()=>{" +
       "const C=" + JSON.stringify(code) + ";" +
       "const p=C.replace(/\\s+/g,'').split('.');" +
@@ -884,9 +904,7 @@
       "  if(o.w) localStorage.setItem('houshi.wallet.v1', JSON.stringify(o.w));",
       "  if(o.n) localStorage.setItem('houshi.nick.v1', JSON.stringify(o.n));",
       "  if(o.o) localStorage.setItem('houshi.settings.v1', JSON.stringify(o.o));",
-    ].concat(cacheClearCode().map(function(k){
-      return "  localStorage.removeItem('" + k + "');";
-    })).concat([
+    ].concat(cacheClearCodeLines("  ")).concat([
       "  console.log('已写入：层级', o.s.zones.length, '实体', (o.s.entities||[]).length, '成就', Object.keys(o.s.achievements||{}).length);",
       "  var orig = Storage.prototype.setItem;",
       "  Storage.prototype.setItem = function(k, v){",
