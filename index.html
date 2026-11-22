@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#14120c" />
+<title>后室存档编辑器</title>
+<style>
+  :root{
+    --bg:#14120c; --surface:#1e1b13; --surface2:#272319; --surface3:#332e21;
+    --on:#eee3d0; --on-var:#c9bda8; --outline:#5a5140;
+    --primary:#e8c88a; --on-primary:#3a2c12; --primary-cont:#443619; --on-primary-cont:#ffe0ae;
+    --ok:#a8d48a; --danger:#f2a6a0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--on);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;
+    font-size:15px;line-height:1.6;padding-bottom:40px}
+  header{padding:18px 18px 10px}
+  h1{margin:0;font-size:21px;font-weight:600;letter-spacing:.4px}
+  .sub{margin:6px 0 0;color:var(--on-var);font-size:13px}
+  main{padding:0 14px}
+  .card{background:var(--surface);border-radius:22px;padding:16px;margin:12px 0;
+    border:1px solid rgba(255,255,255,.04)}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 10px;color:var(--primary);
+    letter-spacing:.6px}
+  .hint{color:var(--on-var);font-size:12.5px;margin:8px 0 0}
+  textarea{width:100%;min-height:96px;resize:vertical;background:var(--surface2);
+    color:var(--on);border:1px solid var(--outline);border-radius:14px;padding:12px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    line-height:1.5;word-break:break-all}
+  input[type=number]{width:100%;background:var(--surface2);color:var(--on);
+    border:1px solid var(--outline);border-radius:12px;padding:10px;font-size:15px}
+  button{border:none;border-radius:999px;padding:12px 20px;font-size:14.5px;
+    font-weight:600;cursor:pointer;transition:filter .15s;font-family:inherit}
+  button:active{filter:brightness(1.18)}
+  .primary{background:var(--primary);color:var(--on-primary)}
+  .tonal{background:var(--surface3);color:var(--on)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row .grow{flex:1 1 auto}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .chip{background:var(--surface2);border:1px solid var(--outline);color:var(--on-var);
+    border-radius:999px;padding:8px 14px;font-size:13.5px;cursor:pointer;
+    transition:.15s;user-select:none}
+  .chip[aria-pressed="true"]{background:var(--primary-cont);border-color:var(--primary);
+    color:var(--on-primary-cont);font-weight:600}
+  .stat{display:flex;justify-content:space-between;font-size:13px;color:var(--on-var);
+    padding:6px 2px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .field label{display:block;font-size:12.5px;color:var(--on-var);margin-bottom:6px}
+  .msg{font-size:13px;padding:10px 12px;border-radius:12px;margin-top:10px;display:none}
+  .msg.ok{display:block;background:rgba(168,212,138,.12);color:var(--ok)}
+  .msg.err{display:block;background:rgba(242,166,160,.12);color:var(--danger)}
+  .fold{border-top:1px solid rgba(255,255,255,.07);margin-top:12px;padding-top:12px}
+  .fold summary{font-size:13.5px;color:var(--on-var);cursor:pointer;list-style:none}
+  .fold summary::-webkit-details-marker{display:none}
+  .fold summary::before{content:"▸ ";color:var(--primary)}
+  details[open] summary::before{content:"▾ "}
+  footer{color:var(--outline);font-size:12px;text-align:center;padding:24px 20px 0;
+    line-height:1.7}
+  .lock{color:var(--on-var);font-size:12.5px}
+</style>
+</head>
+<body>
+<div id="errBar" style="display:none;margin:10px;padding:10px;border-radius:10px;background:#5a1f1f;color:#ffd9d9;font-size:12px;line-height:1.5;word-break:break-all"></div>
+<header>
+  <h1>后室存档编辑器</h1>
+  <p class="sub">本地单机存档串生成 · 离线运行 · 不联网</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1 · 现有存档（可选）</h2>
+    <textarea id="inp" placeholder="粘贴你现有的 HS1z.xxx.XXXXXX 存档串，会读出当前进度，编辑时不丢已有内容。没有就留空。"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="tonal" id="btnParse">解析</button>
+      <button class="tonal grow" id="btnClear">清空</button>
+    </div>
+    <div class="msg" id="msgIn"></div>
+    <div class="fold">
+      <summary style="font-size:13.5px;color:var(--on-var);cursor:pointer">从备份 JSON 还原（控制台导出的小票，粘这里）</summary>
+      <p class="hint" style="margin-top:10px">游戏页控制台执行备份命令后会得到一段 JSON，粘到下面就能转成存档码。</p>
+      <textarea id="jsonIn" placeholder='{"houshi.save.v1":"{...}","houshi.wallet.v1":"{...}"}' style="min-height:88px"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="tonal" id="btnJson">转成存档码</button>
+      </div>
+      <div class="msg" id="msgJson"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2 · 进度设置</h2>
+    <div class="stat"><span>区域已解锁</span><span id="statZone">0 / 20</span></div>
+    <div class="chips" id="zoneChips"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="tonal" id="btnAllZone">全选区域</button>
+      <button class="tonal" id="btnNoneZone">全不选</button>
+    </div>
+
+    <div class="fold">
+      <div class="stat"><span>成就已解锁</span><span id="statAch">0 / 48</span></div>
+      <div class="chips" id="achChips"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="tonal grow" id="btnAllAch">全部成就解锁</button>
+        <button class="tonal grow" id="btnNoneAch">全部清空</button>
+      </div>
+    </div>
+
+    <div class="fold">
+      <div class="stat"><span>物品 / 规则已读</span><span id="statItem">0 / 3</span></div>
+      <div class="chips" id="itemChips"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="tonal grow" id="btnItemAll">物品全解锁</button>
+        <button class="tonal" id="btnItemNone">清空物品</button>
+      </div>
+    </div>
+
+    <div class="fold">
+      <div class="stat"><span>计数器（影响显示，不补发成就）</span><span id="statCtr">0 / 7</span></div>
+      <div id="counterFields"></div>
+      <p class="hint">写进存档只是数字。成就是游戏在事件发生那一刻判定的，事后改计数器不会补发，成就请在上面的按钮里勾。</p>
+    </div>
+
+    <div class="fold">
+      <h2 style="margin:2px 0 10px">钱包</h2>
+      <div class="grid3">
+        <div class="field"><label>水 water（0-3）</label><input type="text" inputmode="numeric" id="wWater" value="3" /></div>
+        <div class="field"><label>盐 salt</label><input type="text" inputmode="numeric" id="wSalt" value="999" /></div>
+        <div class="field"><label>功 merit</label><input type="text" inputmode="numeric" id="wMerit" value="999" /></div>
+      </div>
+      <p class="hint">水最高 3 格；盐和功是本地数值，写多少就存多少。</p>
+    </div>
+
+    <div class="fold">
+      <h2 style="margin:2px 0 10px">昵称 n</h2>
+      <p class="hint" style="margin-top:0">存档里存的是词表**下标**，不是文字。直接填中文会被判成无效，游戏就退回随机名。</p>
+      <div class="stat" style="margin-top:10px"><span>前缀（点一下就是选中）</span><span id="nickPrefixNow">0 · —</span></div>
+      <div class="chips" id="nickPrefixList"></div>
+      <div class="stat" style="margin-top:14px"><span>核心（点一下就是选中）</span><span id="nickCoreNow">0 · —</span></div>
+      <div class="chips" id="nickCoreList"></div>
+      <div class="field" style="margin-top:10px">
+        <label>编号 0-9999</label>
+        <input type="text" inputmode="numeric" maxlength="4" id="nickNum" placeholder="9527" />
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="tonal" id="btnNickRandom">随机一套</button>
+      </div>
+      <p class="hint">当前：<b id="nickPreview">—</b>　编号填 9527 命中隐藏成就 number_9527。</p>
+    </div>
+
+    <div class="fold">
+      <h2 style="margin:2px 0 10px">设置 o</h2>
+      <div class="field">
+        <label>语言 language</label>
+        <div class="chips" id="langPick"></div>
+      </div>
+      <p class="hint">只改语言，画质/音量等其它设置项保留原值。</p>
+    </div>
+
+    <div class="fold">
+      <div class="stat"><span>实体图鉴 entities</span><span id="statEnt">0 / 17</span></div>
+      <div class="row" style="margin-top:8px">
+        <button class="tonal grow" id="btnEntAll">实体全解锁</button>
+        <button class="tonal grow" id="btnEntNone">清空实体</button>
+      </div>
+      <p class="hint">图鉴的「实体」页就靠这个字段，之前一直是空的，所以整页灰色。</p>
+    </div>
+
+    <div class="fold">
+      <div class="stat"><span>地标 landmarks</span><span id="statLm">0 / 300</span></div>
+      <div class="stat" style="margin-top:8px"><span>层级</span><span id="lmZoneNow">—</span></div>
+      <div class="chips" id="lmZoneList"></div>
+      <div class="field" style="margin-top:8px"><label>key（英文标识，随便写）</label><input id="lmKey" placeholder="lifeguard_seat" /></div>
+      <div class="field" style="margin-top:8px"><label>nameSeed（数字，决定地名）</label><input type="text" inputmode="numeric" id="lmSeed" placeholder="12" /></div>
+      <div class="row" style="margin-top:10px">
+        <button class="tonal grow" id="btnLmAdd">添加到列表</button>
+        <button class="tonal" id="btnLmClear">清空全部</button>
+      </div>
+      <div id="lmList" style="margin-top:10px"></div>
+      <p class="hint">不再要你手写格式：选层级、写个英文 key、给个数字，点添加即可。</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3 · 生成存档串</h2>
+    <button class="primary" id="btnGen" style="width:100%">生成</button>
+    <div class="row" style="margin-top:10px"><button class="tonal grow" id="btnCheck">自检（坏了先点这个）</button></div>
+    <div class="msg" id="msgCheck"></div>
+    <textarea id="out" readonly placeholder="生成结果会出现在这里" style="margin-top:12px;min-height:110px"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="tonal grow" id="btnCopy">复制存档串</button>
+    </div>
+    <div class="msg" id="msgOut"></div>
+  </section>
+
+  <section class="card">
+    <h2>4 · 直达指定层级</h2>
+    <p class="hint" style="margin-top:0">进游戏地址带一个层级参数，载入时就会直接落在那个层级。</p>
+    <div class="field" style="margin-top:12px">
+      <label>目标层级（点一下选中）</label>
+      <div class="chips" id="zonePick"></div>
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div class="field"><label>楼层 floor</label><input type="text" inputmode="numeric" id="lFloor" placeholder="自动" /></div>
+      <div class="field"><label>坐标 x</label><input type="text" inputmode="numeric" id="lX" placeholder="可空" /></div>
+      <div class="field"><label>坐标 z</label><input type="text" inputmode="numeric" id="lZ" placeholder="可空" /></div>
+    </div>
+    <div class="field" style="margin-top:12px"><label>朝向 yaw（度）</label><input type="text" inputmode="numeric" id="lYaw" placeholder="可空" /></div>
+    <textarea id="linkOut" readonly style="margin-top:12px;min-height:78px" placeholder="链接会出现在这里"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="btnLinkGen">生成链接</button>
+      <button class="tonal grow" id="btnLinkCopy">复制链接</button>
+      <button class="tonal grow" id="btnLinkOpen">直接打开</button>
+    </div>
+    <div class="msg" id="msgLink"></div>
+    <p class="hint">只要层级：不用填坐标。游戏里按数字键 1~0 也能跳前十个层级。</p>
+  </section>
+
+  <section class="card">
+    <h2>怎么用</h2>
+    <p class="lock">1. 打开游戏页面，进「存档 / 导入」入口粘贴生成的整串；<br>
+    2. 或者把旧存档串换成新的；<br>
+    3. 只影响本机游戏进度，不进联机房间共享。</p>
+    <p class="hint">校验码用来防手输错字，不是加密；改错一位就会被判为无效。</p>
+  </section>
+</main>
+
+<footer>纯本地工具 · 无网络请求 · 单文件</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var ZONES = ["yellow","stairwell","school","pool","office","habitable","pipes","fun","run",
+    "bathhouse","station","hotel","lightsout","ocean","cave","suburbs","wheat","city","hospital","metro"];
+
+  var ZONE_CN = {
+    yellow:"黄色房间 (Level 0)", stairwell:"楼梯间", school:"学校", pool:"泳池",
+    office:"办公室", habitable:"宜居区", pipes:"管道", fun:"游乐场", run:"奔跑区",
+    bathhouse:"浴室", station:"车站", hotel:"酒店", lightsout:"熄灯区", ocean:"海洋",
+    cave:"洞穴", suburbs:"郊区", wheat:"麦田", city:"城市", hospital:"医院", metro:"地铁"
+  };
+
+  var GAME_URL = "https://backrooms.trenquil.com/";
+
+  var ENTITY_IDS = ["smiler","partygoer","hound","director","zhugan","deathmoth","blubcat","nurse","maid","dark_voice","light_guide","leviathan","black_sludge","warning_kite","fog_walker","householder","mound"];
+
+  var ITEMS = ["almond_water","firesalt","supply_crate"];
+
+  var PREF_ZH = ["迷路的","加班的","午睡刚醒的","没带钥匙的","不敢回头的","跺脚的","摸鱼的","逃课的","打卡的","没吃早饭的","准点下班的","头铁的","熬夜的","嘴硬的","怕黑的","躺平的","精神状态良好的","背着书包的","趿拉拖鞋的","穿校服的","迟到的","早退的","不睡午觉的","数台阶的","抄近路的","社恐的","社牛的","已读不回的","电量1%的","端着搪瓷缸的","被罚站的","偷吃辣条的","刚洗完澡的","在找厕所的","喊不亮灯的","功德圆满的","走错单元的","下错楼层的","在等电梯的","带着暑假作业的","被妈妈喊回家的","第一次出门的","测了一万格的","没写作业的","睡过站的","抢到最后一个座的"]
+
+  var CORE_ZH = ["小明","小红","小刚","小美","打工人","牛马","课代表","值日生","班长","体育委员","宿管阿姨","测绘员","探险家","路人甲","邻居","楼长","三好学生","转校生","新同事","实习生","门卫大爷","搓澡师傅","救生员","广场舞领队","快递员","修灯师傅","居委会大妈","夜猫子","早八人","干饭人","咸鱼","萌新","大聪明","显眼包","小透明","卷王","鼠鼠","打工吗喽","木鱼","声控灯","钥匙","饮水机","红领巾","眼保健操","搪瓷缸","后排同学"]
+
+  var ACH = [
+    "first_survey",
+    "survey_1000",
+    "survey_10000",
+    "first_landmark",
+    "all_zones",
+    "stomp_100",
+    "dark_60",
+    "caught_running",
+    "good_student",
+    "eyes_closed",
+    "merit_108",
+    "off_work_fail",
+    "like_message",
+    "famous_message",
+    "meet_player",
+    "world_shift",
+    "teleport_5",
+    "night_owl",
+    "rule_reader",
+    "seventh_floor",
+    "number_9527",
+    "all_transitions",
+    "fun_escape",
+    "run_escape",
+    "almond_10",
+    "smiler_backoff",
+    "logbook_entities",
+    "noclip",
+    "firesalt_100",
+    "first_floor_change",
+    "cave_moths",
+    "city_follow",
+    "hospital_lamp",
+    "hotel_light",
+    "lightsout_rest",
+    "lightsout_knock",
+    "lightsout_seen",
+    "metro_seat",
+    "ocean_still",
+    "office_loop",
+    "office_window",
+    "run_blue",
+    "station_breaker",
+    "station_handsy",
+    "suburbs_fog",
+    "suburbs_guest",
+    "wheat_road",
+    "manila_rest"
+  ];
+
+  var COUNTERS = [
+    ["surveyed", "已测绘格数"],
+    ["deepestFloor", "到达过的最深楼层"],
+    ["stomps", "跺脚次数"],
+    ["caught", "被抓住次数"],
+    ["almond", "喝杏仁水次数"],
+    ["darkStairSec", "暗处停留秒数"],
+    ["flareHint", "照明弹提示"]
+  ];
+
+  var STAMP = 1700000000000; // 成就时间戳占位
+
+  var state = {
+    zones: {},     // name -> true
+    ach: {},       // name -> true
+    items: {},     // name -> true
+    rules: {},     // zone -> true
+    entities: {},  // 实体图鉴 name -> true
+    landmarks: [], // {key, zone, nameSeed}
+    nickPref: 0,   // 昵称前缀下标
+    nickCore: 0,   // 昵称核心下标
+    lmZone: "yellow", // 地标表单当前层级
+    extra: null    // 原存档里保留的其它字段
+  };
+
+  /* ---------- 编解码核心 ---------- */
+
+  function b36(n){
+    if (n === 0) return "0";
+    var d = "0123456789abcdefghijklmnopqrstuvwxyz", out = "";
+    while (n) { out = d[n % 36] + out; n = Math.floor(n / 36); }
+    return out;
+  }
+
+  function fnv(s){
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++){
+      h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    }
+    h = h >>> 0;
+    var str = b36(h);
+    while (str.length < 7) str = "0" + str;
+    return str.slice(-6).toUpperCase();
+  }
+
+  function b64urlEncode(bytes){
+    var chunk = "", s = "";
+    for (var i = 0; i < bytes.length; i++){
+      chunk += String.fromCharCode(bytes[i]);
+      if (chunk.length >= 8192){ s += chunk; chunk = ""; }
+    }
+    s += chunk;
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function b64urlDecode(str){
+    var b = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+    var out = new Uint8Array(b.length);
+    for (var i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+    return out;
+  }
+
+  async function deflateRaw(bytes){
+    if (typeof CompressionStream === "undefined") throw new Error("no-deflate");
+    var cs = new CompressionStream("deflate-raw");
+    var writer = cs.writable.getWriter();
+    writer.write(bytes); writer.close();
+    var reader = cs.readable.getReader();
+    var parts = [], total = 0;
+    for (;;){
+      var r = await reader.read();
+      if (r.done) break;
+      parts.push(r.value); total += r.value.length;
+      if (total > (1 << 20)) throw new Error("too-large");
+    }
+    var buf = new Uint8Array(total), off = 0;
+    for (var i = 0; i < parts.length; i++){ buf.set(parts[i], off); off += parts[i].length; }
+    return buf;
+  }
+
+  async function inflateRaw(bytes){
+    if (typeof DecompressionStream === "undefined") throw new Error("no-inflate");
+    var ds = new DecompressionStream("deflate-raw");
+    var writer = ds.writable.getWriter();
+    writer.write(bytes); writer.close();
+    var reader = ds.readable.getReader();
+    var parts = [], total = 0;
+    for (;;){
+      var r = await reader.read();
+      if (r.done) break;
+      parts.push(r.value); total += r.value.length;
+      if (total > (1 << 20)) throw new Error("too-large");
+    }
+    var buf = new Uint8Array(total), off = 0;
+    for (var i = 0; i < parts.length; i++){ buf.set(parts[i], off); off += parts[i].length; }
+    return buf;
+  }
+
+  function te(s){ return new TextEncoder().encode(s); }
+  function td(b){ return new TextDecoder().decode(b); }
+
+  async function encode(payload){
+    var json = JSON.stringify(payload);
+    var raw = te(json);
+    var head, body;
+    try {
+      body = await deflateRaw(raw);
+      head = "HS1z." + b64urlEncode(body);
+    } catch (e){
+      head = "HS1j." + b64urlEncode(raw);
+    }
+    return head + "." + fnv(head);
+  }
+
+  async function decode(code){
+    var t = String(code || "").replace(/\s+/g, "");
+    var m = /^(HS1([zj])\.([A-Za-z0-9_-]+))\.([0-9A-Z]{6})$/.exec(t);
+    if (!m) throw new Error("格式不对，应形如 HS1z.xxxx.XXXXXX");
+    var head = m[1], kind = m[2], body = m[3], chk = m[4];
+    if (fnv(head) !== chk) throw new Error("校验码不匹配，串被改过或复制不完整");
+    var bytes = b64urlDecode(body);
+    if (bytes.length > (1 << 20)) throw new Error("内容超出 1MB 上限");
+    if (kind === "z") bytes = await inflateRaw(bytes);
+    var obj = JSON.parse(td(bytes));
+    if (!obj || obj.v !== 1 || !obj.s) throw new Error("不是 v1 存档");
+    return obj;
+  }
+
+  /* ---------- 界面 ---------- */
+
+  function mkChips(host, list, key, onToggle){
+    host.innerHTML = "";
+    list.forEach(function(name){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = name;
+      b.setAttribute("aria-pressed", state[key][name] ? "true" : "false");
+      b.onclick = function(){
+        state[key][name] = !state[key][name];
+        b.setAttribute("aria-pressed", state[key][name] ? "true" : "false");
+        syncStats();
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function syncStats(){
+    var zc = 0, ac = 0, ic = 0, cc = 0;
+    ZONES.forEach(function(z){ if (state.zones[z]) zc++; });
+    ACH.forEach(function(a){ if (state.ach[a]) ac++; });
+    ITEMS.forEach(function(i){ if (state.items[i]) ic++; });
+    COUNTERS.forEach(function(c){
+      var el = document.getElementById("ctr_" + c[0]);
+      if (el && el.value.trim() !== "") cc++;
+    });
+    document.getElementById("statZone").textContent = zc + " / " + ZONES.length;
+    document.getElementById("statAch").textContent = ac + " / " + ACH.length;
+    renderAchChips();
+    document.getElementById("statItem").textContent = ic + " / " + ITEMS.length;
+    var sc = document.getElementById("statCtr");
+    if (sc) sc.textContent = cc + " / " + COUNTERS.length;
+  }
+
+  function renderCounters(){
+    var host = document.getElementById("counterFields");
+    if (!host) return;
+    var html = "";
+    COUNTERS.forEach(function(c){
+      html += '<div class="field" style="margin-bottom:8px"><label>' + c[1] +
+              ' <code style="color:var(--primary);font-size:11px">' + c[0] + '</code></label>' +
+              '<input type="text" inputmode="numeric" id="ctr_' + c[0] + '" placeholder="留空=不写" /></div>';
+    });
+    host.innerHTML = html;
+    host.addEventListener("input", syncStats);
+  }
+
+  function refreshChips(){
+    mkChips(document.getElementById("zoneChips"), ZONES, "zones");
+    mkChips(document.getElementById("itemChips"), ITEMS, "items");
+    syncStats();
+  }
+
+  function showMsg(id, text, ok){
+    var el = document.getElementById(id);
+    el.className = "msg " + (ok ? "ok" : "err");
+    el.textContent = text;
+  }
+
+  function applyPayload(p){
+    var s = p.s || {};
+    state.zones = {}; state.ach = {}; state.items = {}; state.rules = {};
+    (s.zones || []).forEach(function(z){ state.zones[z] = true; });
+    (s.rulesRead || []).forEach(function(z){ state.rules[z] = true; });
+    (s.items || []).forEach(function(i){ if (ITEMS.indexOf(i) >= 0) state.items[i] = true; });
+    Object.keys(s.achievements || {}).forEach(function(k){ state.ach[k] = true; });
+
+    state.extra = {
+      entities: Array.isArray(s.entities) ? s.entities : [],
+      landmarks: Array.isArray(s.landmarks) ? s.landmarks : [],
+      counters: (s.counters && typeof s.counters === "object") ? s.counters : {},
+      otherAchievements: {}
+    };
+    Object.keys(s.achievements || {}).forEach(function(k){
+      if (ACH.indexOf(k) < 0) state.extra.otherAchievements[k] = s.achievements[k];
+    });
+
+    if (p.w){
+      if (typeof p.w.water === "number") document.getElementById("wWater").value = p.w.water;
+      if (typeof p.w.salt === "number") document.getElementById("wSalt").value = p.w.salt;
+      if (typeof p.w.merit === "number") document.getElementById("wMerit").value = p.w.merit;
+    }
+    state.nick = (p.n && typeof p.n === "object") ? p.n : null;
+    state.settings = (p.o && typeof p.o === "object") ? p.o : null;
+    state.lang = (p.o && typeof p.o.language === "string") ? p.o.language : "";
+    renderLang();
+    var nq = document.getElementById("nickNum");
+    if (state.nick && isFinite(Number(state.nick.prefix)) && isFinite(Number(state.nick.core))){
+      state.nickPref = Number(state.nick.prefix);
+      state.nickCore = Number(state.nick.core);
+      if (nq) nq.value = (typeof state.nick.num === "number") ? String(state.nick.num) : "";
+    } else { state.nickPref = 0; state.nickCore = 0; if (nq) nq.value = ""; }
+    renderNick();
+    state.landmarks = Array.isArray(s.landmarks) ? s.landmarks.filter(function(lm){
+      return lm && ZONES.indexOf(lm.zone) >= 0 && typeof lm.key === "string" && isFinite(lm.nameSeed);
+    }) : [];
+    state.entities = {};
+    ENTITY_IDS.forEach(function(id){
+      if (Array.isArray(s.entities) && s.entities.indexOf(id) >= 0) state.entities[id] = true;
+    });
+    syncLm();
+    syncEnt();
+    COUNTERS.forEach(function(c){
+      var el = document.getElementById("ctr_" + c[0]);
+      if (!el) return;
+      var v = (s.counters || {})[c[0]];
+      el.value = (typeof v === "number" && isFinite(v)) ? v : "";
+    });
+    refreshChips();
+  }
+
+  function readCounters(){
+    var out = {};
+    COUNTERS.forEach(function(c){
+      var el = document.getElementById("ctr_" + c[0]);
+      if (!el) return;
+      var raw = el.value.trim();
+      if (raw !== "" && isFinite(Number(raw))) out[c[0]] = Number(raw);
+    });
+    return out;
+  }
+
+  function buildSave(){
+    var zones = ZONES.filter(function(z){ return state.zones[z]; });
+    var rules = ZONES.filter(function(z){ return state.rules[z]; });
+    var items = ITEMS.filter(function(i){ return state.items[i]; });
+    var ach = {};
+    ACH.forEach(function(a){ if (state.ach[a]) ach[a] = STAMP; });
+    var extra = state.extra || { entities: [], landmarks: [], counters: {}, otherAchievements: {} };
+    Object.keys(extra.otherAchievements || {}).forEach(function(k){
+      if (!(k in ach)) ach[k] = extra.otherAchievements[k];
+    });
+    var counters = readCounters();
+    Object.keys(extra.counters || {}).forEach(function(k){
+      if (!(k in counters)) counters[k] = extra.counters[k];
+    });
+    var lm = state.landmarks || [];
+    var ents = ENTITY_IDS.filter(function(id){ return state.entities && state.entities[id]; });
+    var unkEnts = (extra.entities || []).filter(function(id){ return ENTITY_IDS.indexOf(id) < 0; });
+    return {
+      zones: zones,
+      entities: ents.concat(unkEnts),
+      items: items,
+      landmarks: lm.slice(-300),
+      achievements: ach,
+      counters: counters,
+      rulesRead: rules
+    };
+  }
+
+  function readNick(){
+    var nq = document.getElementById("nickNum");
+    var pIdx = Number(state.nickPref);
+    var cIdx = Number(state.nickCore);
+    var nRaw = nq ? String(nq.value || "").replace(/[^\d]/g, "") : "";
+    var num = nRaw === "" ? NaN : Number(nRaw) % 10000;
+    if (!isFinite(pIdx) || !isFinite(cIdx)) return null;
+    if (!isFinite(num)) return null;
+    return { prefix: pIdx, core: cIdx, num: num };
+  }
+
+  function readSettings(){
+    var base = null;
+    if (state.settings && typeof state.settings === "object"){
+      base = {};
+      Object.keys(state.settings).forEach(function(k){ base[k] = state.settings[k]; });
+    }
+    if (state.lang) { base = base || {}; base.language = state.lang; }
+    return base;
+  }
+
+  function syncLm(){
+    var el = document.getElementById("statLm");
+    if (el) el.textContent = (state.landmarks || []).length + " / 300";
+    var host = document.getElementById("lmList");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!state.landmarks || !state.landmarks.length){
+      host.innerHTML = '<p class="hint" style="margin:0">还没有地标。上面填好点「添加到列表」。</p>';
+      return;
+    }
+    state.landmarks.forEach(function(lm, i){
+      var row = document.createElement("div");
+      row.className = "row";
+      row.style.cssText = "justify-content:space-between;margin-bottom:6px;background:var(--surface2);border-radius:10px;padding:8px 10px";
+      var t = document.createElement("span");
+      t.style.cssText = "font-size:12.5px;color:var(--on-var);word-break:break-all";
+      t.textContent = lm.zone + " · " + lm.key + " · " + lm.nameSeed;
+      var del = document.createElement("button");
+      del.className = "chip";
+      del.type = "button";
+      del.textContent = "删除";
+      del.onclick = function(){ state.landmarks.splice(i, 1); syncLm(); };
+      row.appendChild(t); row.appendChild(del);
+      host.appendChild(row);
+    });
+  }
+
+  function renderAchChips(){
+    var host = document.getElementById("achChips");
+    if (!host) return;
+    host.innerHTML = "";
+    ACH.forEach(function(a){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.textContent = a;
+      b.setAttribute("aria-pressed", state.ach[a] ? "true" : "false");
+      b.onclick = function(){
+        state.ach[a] = !state.ach[a];
+        b.setAttribute("aria-pressed", state.ach[a] ? "true" : "false");
+        refreshChips();
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function renderLmZones(){
+    var host = document.getElementById("lmZoneList");
+    if (!host) return;
+    host.innerHTML = "";
+    ZONES.forEach(function(z){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.textContent = ZONE_CN[z] || z;
+      b.setAttribute("aria-pressed", state.lmZone === z ? "true" : "false");
+      b.onclick = function(){
+        state.lmZone = z;
+        Array.prototype.forEach.call(host.children, function(c, j){
+          c.setAttribute("aria-pressed", ZONES[j] === z ? "true" : "false");
+        });
+        var now = document.getElementById("lmZoneNow");
+        if (now) now.textContent = ZONE_CN[z] || z;
+      };
+      host.appendChild(b);
+    });
+    var now = document.getElementById("lmZoneNow");
+    if (now) now.textContent = ZONE_CN[state.lmZone] || state.lmZone;
+  }
+
+  function syncEnt(){
+    var el = document.getElementById("statEnt");
+    if (!el) return;
+    var map = state.entities || {};
+    var n = 0;
+    ENTITY_IDS.forEach(function(id){ if (map[id]) n++; });
+    el.textContent = n + " / " + ENTITY_IDS.length;
+  }
+
+  function renderNick(){
+    var pl = document.getElementById("nickPrefixList");
+    var cl = document.getElementById("nickCoreList");
+    if (!pl || !cl) return;
+    pl.innerHTML = ""; cl.innerHTML = "";
+    PREF_ZH.forEach(function(w, i){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.textContent = i + " " + w;
+      b.setAttribute("aria-pressed", Number(state.nickPref) === i ? "true" : "false");
+      b.onclick = function(){
+        state.nickPref = i;
+        Array.prototype.forEach.call(pl.children, function(c, j){
+          c.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+        var now = document.getElementById("nickPrefixNow");
+        if (now) now.textContent = i + " · " + w;
+        previewNick();
+      };
+      pl.appendChild(b);
+    });
+    CORE_ZH.forEach(function(w, i){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.textContent = i + " " + w;
+      b.setAttribute("aria-pressed", Number(state.nickCore) === i ? "true" : "false");
+      b.onclick = function(){
+        state.nickCore = i;
+        Array.prototype.forEach.call(cl.children, function(c, j){
+          c.setAttribute("aria-pressed", j === i ? "true" : "false");
+        });
+        var now = document.getElementById("nickCoreNow");
+        if (now) now.textContent = i + " · " + w;
+        previewNick();
+      };
+      cl.appendChild(b);
+    });
+    var pn = document.getElementById("nickPrefixNow");
+    if (pn) pn.textContent = Number(state.nickPref) + " · " + (PREF_ZH[Number(state.nickPref)] || "—");
+    var cn = document.getElementById("nickCoreNow");
+    if (cn) cn.textContent = Number(state.nickCore) + " · " + (CORE_ZH[Number(state.nickCore)] || "—");
+    previewNick();
+  }
+
+  function previewNick(){
+    var nq = document.getElementById("nickNum");
+    var pv = document.getElementById("nickPreview");
+    if (!pv) return;
+    var p = PREF_ZH[Number(state.nickPref)] || "";
+    var c = CORE_ZH[Number(state.nickCore)] || "";
+    var n = String(nq ? (nq.value || "").replace(/[^\d]/g, "") : "");
+    if (n === "") { pv.textContent = p + c + "（编号没填）"; return; }
+    n = ("0000" + n).slice(-4);
+    pv.textContent = p + c + n;
+  }
+
+  function renderLang(){
+    var host = document.getElementById("langPick");
+    if (!host) return;
+    var opts = [["", "不改"], ["zh", "中文"], ["en", "English"]];
+    host.innerHTML = "";
+    opts.forEach(function(o){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = o[1];
+      b.setAttribute("aria-pressed", (state.lang || "") === o[0] ? "true" : "false");
+      b.onclick = function(){ state.lang = o[0]; renderLang(); };
+      host.appendChild(b);
+    });
+  }
+
+  async function gen(){
+    var water = Math.max(0, Math.min(3, Number(document.getElementById("wWater").value) || 0));
+    var salt = Math.max(0, Math.floor(Number(document.getElementById("wSalt").value) || 0));
+    var merit = Math.max(0, Math.floor(Number(document.getElementById("wMerit").value) || 0));
+    var payload = { v: 1, s: buildSave(), w: { water: water, salt: salt, merit: merit } };
+    var nick = readNick();
+    if (nick) payload.n = nick;
+    var st = readSettings();
+    if (st) payload.o = st;
+    var code = await encode(payload);
+    document.getElementById("out").value = code;
+    var extra = "";
+    if (nick) extra += " 昵称已写入";
+    if (st) extra += " 设置已写入";
+    var inj = document.getElementById("inject");
+    if (inj) inj.value = buildInject(code);
+    var injUrl = document.getElementById("injectUrl");
+    if (injUrl) injUrl.value = buildInjectUrl(code);
+    var injUrl2 = document.getElementById("injectUrl2");
+    if (injUrl2) injUrl2.value = buildInjectUrl(code).replace(/^javascript:/, "script:");
+    showMsg("msgOut", "生成成功，长度 " + code.length + " 字符。" + extra + "。整串复制进游戏即可。", true);
+  }
+
+  function buildInjectUrl(code){
+    var body = "(async()=>{" +
+      "const C=" + JSON.stringify(code) + ";" +
+      "const p=C.replace(/\\s+/g,'').split('.');" +
+      "if(p.length!==3){console.log('代码格式不对');return}" +
+      "const kind=p[0].replace('HS1','');" +
+      "let b=Uint8Array.from(atob(p[1].replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));" +
+      "if(kind==='z'){b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}" +
+      "const o=JSON.parse(new TextDecoder().decode(b));" +
+      "localStorage.setItem('houshi.save.v1',JSON.stringify(o.s));" +
+      "if(o.w)localStorage.setItem('houshi.wallet.v1',JSON.stringify(o.w));" +
+      "if(o.n)localStorage.setItem('houshi.nick.v1',JSON.stringify(o.n));" +
+      "if(o.o)localStorage.setItem('houshi.settings.v1',JSON.stringify(o.o));" +
+      "const S=Storage.prototype.setItem;" +
+      "Storage.prototype.setItem=function(k,v){if(k==='houshi.save.v1')return;return S.call(this,k,v)};" +
+      "console.log('写入完成 成就',Object.keys(o.s.achievements||{}).length,'条');" +
+      "setTimeout(()=>location.reload(),2000)" +
+      "})()";
+    return "javascript:" + encodeURIComponent(body);
+  }
+
+  function buildInject(code){
+    return [
+      "/* 后室存档注入脚本：打开游戏页面，按 F12 打开控制台，粘贴回车 */",
+      "(async function(){",
+      "  var CODE = " + JSON.stringify(code) + ";",
+      "  var m = /^(HS1([zj])\\.([A-Za-z0-9_-]+))\\.([0-9A-Z]{6})$/.exec(CODE.replace(/\\s+/g,''));",
+      "  if(!m){ console.log('存档串格式不对'); return; }",
+      "  var bytes = Uint8Array.from(atob(m[3].replace(/-/g,'+').replace(/_/g,'/')), function(c){return c.charCodeAt(0);});",
+      "  if(m[2]==='z'){",
+      "    var res = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));",
+      "    bytes = new Uint8Array(await new Response(res).arrayBuffer());",
+      "  }",
+      "  var o = JSON.parse(new TextDecoder().decode(bytes));",
+      "  localStorage.setItem('houshi.save.v1', JSON.stringify(o.s));",
+      "  if(o.w) localStorage.setItem('houshi.wallet.v1', JSON.stringify(o.w));",
+      "  if(o.n) localStorage.setItem('houshi.nick.v1', JSON.stringify(o.n));",
+      "  if(o.o) localStorage.setItem('houshi.settings.v1', JSON.stringify(o.o));",
+      "  console.log('已写入：层级', o.s.zones.length, '实体', (o.s.entities||[]).length, '成就', Object.keys(o.s.achievements||{}).length);",
+      "  var orig = Storage.prototype.setItem;",
+      "  Storage.prototype.setItem = function(k, v){",
+      "    if(k === 'houshi.save.v1') return;   /* 挡住离开页面时旧存档回写 */",
+      "    return orig.call(this, k, v);",
+      "  };",
+      "  console.log('已锁定，2 秒后刷新页面');",
+      "  setTimeout(function(){ location.reload(); }, 2200);",
+      "})();"
+    ].join("\n");
+  }
+
+  function buildLink(){
+    var zone = state.zone || "yellow";
+    var p = new URLSearchParams();
+    p.set("zone", zone);
+    var fx = document.getElementById("lFloor").value.trim();
+    var vx = document.getElementById("lX").value.trim();
+    var vz = document.getElementById("lZ").value.trim();
+    var vy = document.getElementById("lYaw").value.trim();
+    if (fx !== "" && !isNaN(Number(fx))) p.set("floor", String(Math.floor(Number(fx))));
+    if (vx !== "" && vz !== "" && !isNaN(Number(vx)) && !isNaN(Number(vz))){
+      p.set("x", String(Number(vx)));
+      p.set("z", String(Number(vz)));
+      if (vy !== "" && !isNaN(Number(vy))) p.set("yaw", String(Number(vy)));
+    }
+    return GAME_URL + "?dev&" + p.toString();
+  }
+
+  function boot(){
+    renderCounters();
+    refreshChips();
+    renderLang();
+    renderNick();
+    syncLm();
+    syncEnt();
+
+    var lmq = document.getElementById("nickNum");
+    if (lmq) lmq.addEventListener("input", previewNick);
+    var rndBtn = document.getElementById("btnNickRandom");
+    if (rndBtn) rndBtn.onclick = function(){
+      state.nickPref = Math.floor(Math.random() * PREF_ZH.length);
+      state.nickCore = Math.floor(Math.random() * CORE_ZH.length);
+      var nq = document.getElementById("nickNum");
+      if (nq) nq.value = String(Math.floor(Math.random() * 10000));
+      renderNick();
+    };
+
+    renderLmZones();
+    var lmAdd = document.getElementById("btnLmAdd");
+    if (lmAdd) lmAdd.onclick = function(){
+      var zone = state.lmZone;
+      var key = (document.getElementById("lmKey").value || "").trim();
+      var seedRaw = (document.getElementById("lmSeed").value || "").replace(/[^\d-]/g, "");
+      if (!key){ showMsg("msgOut", "key 不能为空，随便写个英文标识就行", false); return; }
+      if (seedRaw === "" || !isFinite(Number(seedRaw))){ showMsg("msgOut", "nameSeed 要填个数字", false); return; }
+      if ((state.landmarks || []).length >= 300){ showMsg("msgOut", "已经 300 条上限了", false); return; }
+      state.landmarks = state.landmarks || [];
+      state.landmarks.push({ key: key, zone: zone, nameSeed: Number(seedRaw) });
+      syncLm();
+      showMsg("msgOut", "已添加 1 条地标，共 " + state.landmarks.length + " 条。", true);
+    };
+    var itemAll = document.getElementById("btnItemAll");
+    if (itemAll) itemAll.onclick = function(){
+      ITEMS.forEach(function(id){ state.items[id] = true; });
+      refreshChips();
+    };
+    var itemNone = document.getElementById("btnItemNone");
+    if (itemNone) itemNone.onclick = function(){
+      state.items = {};
+      refreshChips();
+    };
+    var entAll = document.getElementById("btnEntAll");
+    if (entAll) entAll.onclick = function(){
+      state.entities = {};
+      ENTITY_IDS.forEach(function(id){ state.entities[id] = true; });
+      syncEnt();
+    };
+    var entNone = document.getElementById("btnEntNone");
+    if (entNone) entNone.onclick = function(){
+      state.entities = {};
+      syncEnt();
+    };
+    var lmc = document.getElementById("btnLmClear");
+    if (lmc) lmc.onclick = function(){
+      state.landmarks = [];
+      syncLm();
+      showMsg("msgOut", "地标已清空，重新生成后生效。", true);
+    };
+
+    var pick = document.getElementById("zonePick");
+    state.zone = state.zone || "yellow";
+    function renderPick(){
+      pick.innerHTML = "";
+      ZONES.forEach(function(z){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip";
+        b.textContent = ZONE_CN[z] || z;
+        b.setAttribute("aria-pressed", state.zone === z ? "true" : "false");
+        b.onclick = function(){
+          state.zone = z;
+          renderPick();
+          document.getElementById("linkOut").value = buildLink();
+        };
+        pick.appendChild(b);
+      });
+    }
+    renderPick();
+
+    function refreshLink(){
+      document.getElementById("linkOut").value = buildLink();
+    }
+    ["lFloor","lX","lZ","lYaw"].forEach(function(id){
+      document.getElementById(id).addEventListener("input", refreshLink);
+      document.getElementById(id).addEventListener("change", refreshLink);
+    });
+    refreshLink();
+
+    document.getElementById("btnLinkGen").onclick = function(){
+      document.getElementById("linkOut").value = buildLink();
+      showMsg("msgLink", "链接已生成，复制后在浏览器打开即可落到该层级。", true);
+    };
+
+    document.getElementById("btnLinkCopy").onclick = async function(){
+      var v = document.getElementById("linkOut").value || buildLink();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(v);
+        else {
+          var t = document.getElementById("linkOut");
+          t.removeAttribute("readonly"); t.select(); document.execCommand("copy"); t.setAttribute("readonly","readonly");
+        }
+        showMsg("msgLink", "链接已复制", true);
+      } catch (e){
+        showMsg("msgLink", "复制失败，请长按文本框手动复制", false);
+      }
+    };
+
+    document.getElementById("btnLinkOpen").onclick = function(){
+      window.open(document.getElementById("linkOut").value || buildLink(), "_blank");
+    };
+
+    document.getElementById("btnAllZone").onclick = function(){
+      ZONES.forEach(function(z){ state.zones[z] = true; state.rules[z] = true; });
+      refreshChips();
+    };
+    document.getElementById("btnNoneZone").onclick = function(){
+      ZONES.forEach(function(z){ state.zones[z] = false; state.rules[z] = false; });
+      refreshChips();
+    };
+    document.getElementById("btnAllAch").onclick = function(){
+      ACH.forEach(function(a){ state.ach[a] = true; });
+      syncStats();
+    };
+    document.getElementById("btnNoneAch").onclick = function(){
+      state.ach = {};
+      syncStats();
+    };
+    document.getElementById("btnClear").onclick = function(){
+      document.getElementById("inp").value = "";
+      document.getElementById("msgIn").className = "msg";
+    };
+
+    document.getElementById("btnParse").onclick = async function(){
+      var v = document.getElementById("inp").value.trim();
+      if (!v){ showMsg("msgIn", "还没粘贴内容", false); return; }
+      try {
+        var p = await decode(v);
+        applyPayload(p);
+        var zc = 0, ac = 0;
+        ZONES.forEach(function(z){ if (state.zones[z]) zc++; });
+        ACH.forEach(function(a){ if (state.ach[a]) ac++; });
+        showMsg("msgIn", "解析成功：区域 " + zc + " 个，成就 " + ac + " 项。可以继续改了。", true);
+      } catch (e){
+        showMsg("msgIn", "解析失败：" + e.message, false);
+      }
+    };
+
+    document.getElementById("btnJson").onclick = async function(){
+      try {
+        var raw = document.getElementById("jsonIn").value.trim();
+        if (!raw) throw new Error("还没粘贴备份内容");
+        var obj = JSON.parse(raw);
+        var payload = null;
+        if (obj && obj.v === 1 && obj.s){
+          payload = obj;
+        } else {
+          var sr = obj["houshi.save.v1"];
+          var wr = obj["houshi.wallet.v1"];
+          var nr = obj["houshi.nick.v1"];
+          var orr = obj["houshi.settings.v1"];
+          var s = typeof sr === "string" ? JSON.parse(sr) : sr;
+          if (!s) throw new Error("备份里找不到 houshi.save.v1");
+          payload = { v: 1, s: s };
+          if (wr){ var w = typeof wr === "string" ? JSON.parse(wr) : wr; if (w) payload.w = w; }
+          if (nr){ var n2 = typeof nr === "string" ? JSON.parse(nr) : nr; if (n2) payload.n = n2; }
+          if (orr){ var o2 = typeof orr === "string" ? JSON.parse(orr) : orr; if (o2) payload.o = o2; }
+        }
+        applyPayload(payload);
+        var code = await encode(payload);
+        document.getElementById("out").value = code;
+        showMsg("msgJson", "转换成功，存档码已写到下面第 3 块。", true);
+        showMsg("msgOut", "已生成存档码，可直接复制导入。", true);
+      } catch (e){
+        showMsg("msgJson", "转换失败：" + e.message, false);
+      }
+    };
+
+    var chk = document.getElementById("btnCheck");
+    if (chk) chk.onclick = selfCheck;
+
+    document.getElementById("btnGen").onclick = function(){
+      gen().catch(function(e){ showMsg("msgOut", "生成失败：" + e.message, false); });
+    };
+
+    var cpUrl2 = document.getElementById("btnCopyUrl2");
+    if (cpUrl2) cpUrl2.onclick = async function(){
+      var t = document.getElementById("injectUrl2");
+      if (!t || !t.value){ showMsg("msgUrl", "先点上面的「生成」", false); return; }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(t.value);
+        else { t.removeAttribute("readonly"); t.select(); document.execCommand("copy"); t.setAttribute("readonly","readonly"); }
+        showMsg("msgUrl", "已复制。去游戏页地址栏：先手打 java，再粘贴。", true);
+      } catch (e){
+        t.removeAttribute("readonly"); t.select();
+        showMsg("msgUrl", "自动复制失败，已选中，请长按复制", false);
+      }
+    };
+
+    var cpInj = document.getElementById("btnCopyInject");
+    if (cpInj) cpInj.onclick = async function(){
+      var t = document.getElementById("inject");
+      if (!t || !t.value){ showMsg("msgInj", "先点上面的「生成」", false); return; }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(t.value);
+        else { t.removeAttribute("readonly"); t.select(); document.execCommand("copy"); t.setAttribute("readonly","readonly"); }
+        showMsg("msgInj", "注入脚本已复制", true);
+      } catch (e){
+        t.removeAttribute("readonly"); t.select();
+        showMsg("msgInj", "自动复制失败，已选中，请长按复制", false);
+      }
+    };
+
+    document.getElementById("btnCopy").onclick = async function(){
+      var out = document.getElementById("out");
+      if (!out.value){ showMsg("msgOut", "先点生成", false); return; }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(out.value);
+        } else {
+          out.removeAttribute("readonly"); out.select();
+          document.execCommand("copy");
+          out.setAttribute("readonly", "readonly");
+        }
+        showMsg("msgOut", "已复制到剪贴板", true);
+      } catch (e){
+        out.removeAttribute("readonly"); out.select();
+        showMsg("msgOut", "自动复制失败，已选中文本，请手动长按复制", false);
+      }
+    };
+  }
+
+  globalThis.__saveCore = { encode: encode, decode: decode, fnv: fnv, ZONES: ZONES, ACH: ACH };
+
+  if (typeof window !== "undefined" && window.addEventListener){
+    window.addEventListener("error", function(e){
+      var b = document.getElementById("errBar");
+      if (!b) return;
+      b.style.display = "block";
+      b.textContent = "脚本报错：" + (e.message || e.error) + (e.lineno ? "（第 " + e.lineno + " 行）" : "");
+    });
+  }
+
+  function selfCheck(){
+    var rows = [];
+    function n(id){ var el = document.getElementById(id); return el ? (el.children ? el.children.length : 0) : -1; }
+    rows.push("区域按钮 " + n("zoneChips") + " / 应 20");
+    rows.push("成就已勾 " + ACH.filter(function(a){ return state.ach[a]; }).length + " / 应 48");
+    rows.push("物品按钮 " + n("itemChips") + " / 应 3（已勾 " + ITEMS.filter(function(i){ return state.items[i]; }).length + "）");
+    rows.push("实体已勾 " + ENTITY_IDS.filter(function(id){ return state.entities && state.entities[id]; }).length + " / 应 17");
+    rows.push("昵称前缀按钮 " + n("nickPrefixList") + " / 应 46");
+    rows.push("昵称核心按钮 " + n("nickCoreList") + " / 应 46");
+    rows.push("地标层级按钮 " + n("lmZoneList") + " / 应 20");
+    rows.push("昵称预览 " + (document.getElementById("nickPreview") ? document.getElementById("nickPreview").textContent : "无"));
+    rows.push("选中前缀 " + state.nickPref + " 核心 " + state.nickCore + " 地标层级 " + state.lmZone);
+    var nodes2 = ["btnParse","btnJson","btnAllZone","btnAllAch","btnItemAll","btnEntAll","btnLmAdd","btnLmClear","btnGen","btnCopy","btnLinkGen"];
+    var miss = nodes2.filter(function(id){ return !document.getElementById(id); });
+    rows.push(miss.length ? "缺少按钮: " + miss.join(",") : "按钮齐全");
+    var out = document.getElementById("msgCheck") || document.getElementById("msgOut");
+    if (out){ out.className = "msg ok"; out.textContent = rows.join(" · "); }
+  }
+
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+    else boot();
+  }
+})();
+</script>
+</body>
+</html>
