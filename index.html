@@ -192,6 +192,18 @@
       <button class="tonal grow" id="btnCopy">复制存档串</button>
     </div>
     <div class="msg" id="msgOut"></div>
+    <div class="fold">
+      <details>
+        <summary>注入脚本 / 手机链接（存档串导不进去时用）</summary>
+        <p class="hint" style="margin-top:10px">电脑：打开游戏页按 F12，粘下面的脚本回车。手机：用下面那条链接，先手打 <code>java</code> 再粘贴后半段。</p>
+        <textarea id="inject" readonly style="min-height:110px" placeholder="点上面「生成」后出现"></textarea>
+        <div class="row" style="margin-top:8px"><button class="tonal grow" id="btnCopyInject">复制注入脚本</button></div>
+        <div class="msg" id="msgInj"></div>
+        <textarea id="injectUrl2" readonly style="margin-top:12px;min-height:78px" placeholder="点上面「生成」后出现"></textarea>
+        <div class="row" style="margin-top:8px"><button class="tonal grow" id="btnCopyUrl2">复制手机链接</button></div>
+        <div class="msg" id="msgUrl"></div>
+      </details>
+    </div>
   </section>
 
   <section class="card">
@@ -219,7 +231,14 @@
   </section>
 
   <section class="card">
-    <h2>5 · 11-21 更新速查</h2>
+    <h2>5 · 附加清理（不在存档串里）</h2>
+    <p class="hint" style="margin-top:0">这两个键是作者 11-21 新增的本地缓存，存档串带不进去，只能靠注入脚本顺带清掉。</p>
+    <div class="chips" id="cacheChips"></div>
+    <p class="hint">勾上后，第 3 块生成的「注入脚本 / 手机链接」会连带清理对应缓存；<b>复制存档串</b>不受影响。</p>
+  </section>
+
+  <section class="card">
+    <h2>6 · 11-21 更新速查</h2>
     <p class="hint" style="margin-top:0">作者这次加了互动物件和布局重建。下面这些是环境彩蛋，<b>不算成就</b>，成就仍是 48 条。</p>
     <p class="lock">
       · 木鱼：原地敲 108 下 → 提示 + 楼梯间的灯多亮一会儿<br>
@@ -339,6 +358,7 @@
     nickPref: 0,   // 昵称前缀下标
     nickCore: 0,   // 昵称核心下标
     lmZone: "yellow", // 地标表单当前层级
+    cacheClear: { layouts: false, picked: false }, // 注入时顺带清理的本地缓存
     extra: null    // 原存档里保留的其它字段
   };
 
@@ -751,6 +771,37 @@
     pv.textContent = p + c + n;
   }
 
+  function renderCacheChips(){
+    var host = document.getElementById("cacheChips");
+    if (!host) return;
+    var opts = [
+      ["layouts", "清空布局缓存", "houshi.layouts.v1：强制下一次进层级重新生成地形"],
+      ["picked", "清空拾取记录", "houshi.picked.v1：贴纸 / 金币 / 木鱼等重新可拾取"]
+    ];
+    host.innerHTML = "";
+    opts.forEach(function(o){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.title = o[2];
+      b.textContent = o[1];
+      b.setAttribute("aria-pressed", state.cacheClear && state.cacheClear[o[0]] ? "true" : "false");
+      b.onclick = function(){
+        state.cacheClear = state.cacheClear || {};
+        state.cacheClear[o[0]] = !state.cacheClear[o[0]];
+        b.setAttribute("aria-pressed", state.cacheClear[o[0]] ? "true" : "false");
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function cacheClearCode(){
+    var out = [];
+    if (state.cacheClear && state.cacheClear.layouts) out.push("houshi.layouts.v1");
+    if (state.cacheClear && state.cacheClear.picked) out.push("houshi.picked.v1");
+    return out;
+  }
+
   function renderLang(){
     var host = document.getElementById("langPick");
     if (!host) return;
@@ -781,6 +832,8 @@
     var extra = "";
     if (nick) extra += " 昵称已写入";
     if (st) extra += " 设置已写入";
+    var cc = cacheClearCode();
+    if (cc.length) extra += " 注入时顺带清 " + cc.join(" + ");
     var inj = document.getElementById("inject");
     if (inj) inj.value = buildInject(code);
     var injUrl = document.getElementById("injectUrl");
@@ -791,6 +844,8 @@
   }
 
   function buildInjectUrl(code){
+    var clearList = cacheClearCode();
+    var clearStr = clearList.length ? ("[" + clearList.map(function(k){ return JSON.stringify(k); }).join(",") + "].forEach(k=>localStorage.removeItem(k));") : "";
     var body = "(async()=>{" +
       "const C=" + JSON.stringify(code) + ";" +
       "const p=C.replace(/\\s+/g,'').split('.');" +
@@ -803,6 +858,7 @@
       "if(o.w)localStorage.setItem('houshi.wallet.v1',JSON.stringify(o.w));" +
       "if(o.n)localStorage.setItem('houshi.nick.v1',JSON.stringify(o.n));" +
       "if(o.o)localStorage.setItem('houshi.settings.v1',JSON.stringify(o.o));" +
+      clearStr +
       "const S=Storage.prototype.setItem;" +
       "Storage.prototype.setItem=function(k,v){if(k==='houshi.save.v1')return;return S.call(this,k,v)};" +
       "console.log('写入完成 成就',Object.keys(o.s.achievements||{}).length,'条');" +
@@ -828,6 +884,9 @@
       "  if(o.w) localStorage.setItem('houshi.wallet.v1', JSON.stringify(o.w));",
       "  if(o.n) localStorage.setItem('houshi.nick.v1', JSON.stringify(o.n));",
       "  if(o.o) localStorage.setItem('houshi.settings.v1', JSON.stringify(o.o));",
+    ].concat(cacheClearCode().map(function(k){
+      return "  localStorage.removeItem('" + k + "');";
+    })).concat([
       "  console.log('已写入：层级', o.s.zones.length, '实体', (o.s.entities||[]).length, '成就', Object.keys(o.s.achievements||{}).length);",
       "  var orig = Storage.prototype.setItem;",
       "  Storage.prototype.setItem = function(k, v){",
@@ -837,7 +896,7 @@
       "  console.log('已锁定，2 秒后刷新页面');",
       "  setTimeout(function(){ location.reload(); }, 2200);",
       "})();"
-    ].join("\n");
+    ]).join("\n");
   }
 
   function buildLink(){
@@ -861,6 +920,7 @@
     renderCounters();
     refreshChips();
     renderLang();
+    renderCacheChips();
     renderNick();
     syncLm();
     syncEnt();
