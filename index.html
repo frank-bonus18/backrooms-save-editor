@@ -172,12 +172,13 @@
       <div class="chips" id="lmZoneList"></div>
       <div class="field" style="margin-top:8px"><label>key（英文标识，随便写）</label><input id="lmKey" placeholder="lifeguard_seat" /></div>
       <div class="field" style="margin-top:8px"><label>nameSeed（数字，决定地名）</label><input type="text" inputmode="numeric" id="lmSeed" placeholder="12" /></div>
+      <div class="field" style="margin-top:8px"><label>gen（世代，默认 0；同一 key 的不同世代会被当成同一条合并）</label><input type="text" inputmode="numeric" id="lmGen" placeholder="0" value="0" /></div>
       <div class="row" style="margin-top:10px">
         <button class="tonal grow" id="btnLmAdd">添加到列表</button>
         <button class="tonal" id="btnLmClear">清空全部</button>
       </div>
       <div id="lmList" style="margin-top:10px"></div>
-      <p class="hint">不再要你手写格式：选层级、写个英文 key、给个数字，点添加即可。</p>
+      <p class="hint">不再要你手写格式：选层级、写个英文 key、给个数字，点添加即可。gen 是作者 11-21 更新后新增的字段，游戏按「key + gen」判定同一条地标。</p>
     </div>
   </section>
 
@@ -214,6 +215,20 @@
     </div>
     <div class="msg" id="msgLink"></div>
     <p class="hint">只要层级：不用填坐标。游戏里按数字键 1~0 也能跳前十个层级。</p>
+    <p class="hint">注意：作者 11-21 更新后加了布局缓存（houshi.layouts.v1），层级地形会被重建，坐标只保证位置数值，地面长什么样会变。</p>
+  </section>
+
+  <section class="card">
+    <h2>5 · 11-21 更新速查</h2>
+    <p class="hint" style="margin-top:0">作者这次加了互动物件和布局重建。下面这些是环境彩蛋，<b>不算成就</b>，成就仍是 48 条。</p>
+    <p class="lock">
+      · 木鱼：原地敲 108 下 → 提示 + 楼梯间的灯多亮一会儿<br>
+      · 自动售货机：投币出杏仁水（偶尔只是"咚"一声）<br>
+      · 电话：楼梯间里会接到"妈妈来电"<br>
+      · 贴纸 / 留言点 / 金币：路过点一下就有反应<br>
+      · 规则便笺：读完计入 rulesRead，和"规则已读"是同一份数据
+    </p>
+    <p class="hint">地标的新字段 gen：同样 key、不同 gen 会被游戏视为同一条合并，只有 key 不同才是新地标。</p>
   </section>
 
   <section class="card">
@@ -619,7 +634,7 @@
       row.style.cssText = "justify-content:space-between;margin-bottom:6px;background:var(--surface2);border-radius:10px;padding:8px 10px";
       var t = document.createElement("span");
       t.style.cssText = "font-size:12.5px;color:var(--on-var);word-break:break-all";
-      t.textContent = lm.zone + " · " + lm.key + " · " + lm.nameSeed;
+      t.textContent = lm.zone + " · " + lm.key + " · " + lm.nameSeed + " · gen " + (typeof lm.gen === "number" ? lm.gen : 0);
       var del = document.createElement("button");
       del.className = "chip";
       del.type = "button";
@@ -867,11 +882,13 @@
       var zone = state.lmZone;
       var key = (document.getElementById("lmKey").value || "").trim();
       var seedRaw = (document.getElementById("lmSeed").value || "").replace(/[^\d-]/g, "");
+      var genEl = document.getElementById("lmGen");
+      var genRaw = genEl ? String(genEl.value || "").replace(/[^\d-]/g, "") : "";
       if (!key){ showMsg("msgOut", "key 不能为空，随便写个英文标识就行", false); return; }
       if (seedRaw === "" || !isFinite(Number(seedRaw))){ showMsg("msgOut", "nameSeed 要填个数字", false); return; }
       if ((state.landmarks || []).length >= 300){ showMsg("msgOut", "已经 300 条上限了", false); return; }
       state.landmarks = state.landmarks || [];
-      state.landmarks.push({ key: key, zone: zone, nameSeed: Number(seedRaw) });
+      state.landmarks.push({ key: key, zone: zone, nameSeed: Number(seedRaw), gen: (genRaw === "" ? 0 : Number(genRaw)) });
       syncLm();
       showMsg("msgOut", "已添加 1 条地标，共 " + state.landmarks.length + " 条。", true);
     };
