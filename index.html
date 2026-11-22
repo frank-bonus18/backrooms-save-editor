@@ -118,7 +118,11 @@
     <div class="fold">
       <div class="stat"><span>计数器（影响显示，不补发成就）</span><span id="statCtr">0 / 7</span></div>
       <div id="counterFields"></div>
-      <p class="hint">写进存档只是数字。成就是游戏在事件发生那一刻判定的，事后改计数器不会补发，成就请在上面的按钮里勾。</p>
+      <div class="row" style="margin-top:8px">
+        <button class="tonal grow" id="btnCtrDefault">填入推荐值</button>
+        <button class="tonal grow" id="btnCtrZero">全部清零</button>
+      </div>
+      <p class="hint">已经帮你填好一套推荐数字，不想改就直接用。写进存档只是数字，成就是游戏当场判定的，事后改计数器不会补发。</p>
     </div>
 
     <div class="fold">
@@ -170,15 +174,16 @@
       <div class="stat"><span>地标 landmarks</span><span id="statLm">0 / 300</span></div>
       <div class="stat" style="margin-top:8px"><span>层级</span><span id="lmZoneNow">—</span></div>
       <div class="chips" id="lmZoneList"></div>
-      <div class="field" style="margin-top:8px"><label>key（英文标识，随便写）</label><input id="lmKey" placeholder="lifeguard_seat" /></div>
-      <div class="field" style="margin-top:8px"><label>nameSeed（数字，决定地名）</label><input type="text" inputmode="numeric" id="lmSeed" placeholder="12" /></div>
+      <div class="field" style="margin-top:8px"><label>key（英文标识，随便写，玩家看不到）</label><input id="lmKey" value="site_1" placeholder="site_1" /></div>
+      <div class="field" style="margin-top:8px"><label>nameSeed（随便给个数字，只决定地名长啥样）</label><input type="text" inputmode="numeric" id="lmSeed" value="12" placeholder="12" /></div>
       <div class="field" style="margin-top:8px"><label>gen（世代，默认 0；同一 key 的不同世代会被当成同一条合并）</label><input type="text" inputmode="numeric" id="lmGen" placeholder="0" value="0" /></div>
       <div class="row" style="margin-top:10px">
         <button class="tonal grow" id="btnLmAdd">添加到列表</button>
+        <button class="tonal" id="btnLmAuto">自动填一条</button>
         <button class="tonal" id="btnLmClear">清空全部</button>
       </div>
       <div id="lmList" style="margin-top:10px"></div>
-      <p class="hint">不再要你手写格式：选层级、写个英文 key、给个数字，点添加即可。gen 是作者 11-21 更新后新增的字段，游戏按「key + gen」判定同一条地标。</p>
+      <p class="hint">上面已经填好默认值，直接点「添加到列表」就行；懒的话点「自动填一条」。key 只是给游戏内部认的英文标识（玩家看不到），nameSeed 只决定地名，gen 留 0 即可。</p>
     </div>
   </section>
 
@@ -346,6 +351,17 @@
     ["flareHint", "照明弹提示"]
   ];
 
+  // 计数器推荐值：已填好，用户不用懂也能直接用
+  var COUNTER_DEFAULT = {
+    surveyed: 10000,
+    deepestFloor: 7,
+    stomps: 100,
+    caught: 0,
+    almond: 10,
+    darkStairSec: 60,
+    flareHint: 1
+  };
+
   var STAMP = 1700000000000; // 成就时间戳占位
 
   var state = {
@@ -508,7 +524,9 @@
     COUNTERS.forEach(function(c){
       html += '<div class="field" style="margin-bottom:8px"><label>' + c[1] +
               ' <code style="color:var(--primary);font-size:11px">' + c[0] + '</code></label>' +
-              '<input type="text" inputmode="numeric" id="ctr_' + c[0] + '" placeholder="留空=不写" /></div>';
+              '<input type="text" inputmode="numeric" id="ctr_' + c[0] + '" value="' +
+              (typeof COUNTER_DEFAULT[c[0]] === "number" ? COUNTER_DEFAULT[c[0]] : "") +
+              '" placeholder="留空=不写" /></div>';
     });
     host.innerHTML = html;
     host.addEventListener("input", syncStats);
@@ -991,6 +1009,35 @@
       state.entities = {};
       syncEnt();
     };
+    var ctrD = document.getElementById("btnCtrDefault");
+    if (ctrD) ctrD.onclick = function(){
+      COUNTERS.forEach(function(c){
+        var el = document.getElementById("ctr_" + c[0]);
+        if (el) el.value = String(COUNTER_DEFAULT[c[0]] ?? 0);
+      });
+      syncStats();
+    };
+    var ctrZ = document.getElementById("btnCtrZero");
+    if (ctrZ) ctrZ.onclick = function(){
+      COUNTERS.forEach(function(c){
+        var el = document.getElementById("ctr_" + c[0]);
+        if (el) el.value = "0";
+      });
+      syncStats();
+    };
+
+    var lmAuto = document.getElementById("btnLmAuto");
+    if (lmAuto) lmAuto.onclick = function(){
+      var kEl = document.getElementById("lmKey");
+      var sEl = document.getElementById("lmSeed");
+      var gEl = document.getElementById("lmGen");
+      var n = (state.landmarks || []).length + 1;
+      if (kEl) kEl.value = "site_" + n;
+      if (sEl) sEl.value = String(Math.floor(Math.random() * 1000));
+      if (gEl) gEl.value = "0";
+      if (lmAdd) lmAdd.onclick();
+    };
+
     var lmc = document.getElementById("btnLmClear");
     if (lmc) lmc.onclick = function(){
       state.landmarks = [];
